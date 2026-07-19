@@ -3,7 +3,7 @@
 Open-source WisprFlow clone: local push-to-talk dictation on macOS.
 Stack: faster-whisper (STT, int8 CPU) · Ollama llama3.2:3b (cleanup) · pynput hotkey · clipboard paste · FastAPI + Tailscale for phone.
 
-## Status: v0.2.0 — MLX backend, 3.4x faster STT (2026-07-18)
+## Status: v0.3.0 — hold-to-talk on left Option, base model default (2026-07-18)
 
 ### Perf (13.8s speech clip, M-series)
 | Backend | Model | Latency |
@@ -33,6 +33,11 @@ Rust rewrite evaluated and rejected: inference is native code either way, Python
 
 ### Deliberate scope cuts
 - No word-by-word streaming partials — push-to-talk UX matches WisprFlow, streaming adds big complexity for little dictation value
+### Done in v0.3.0
+- [x] Hold-to-talk: hold left Option (`alt_l`) records, release transcribes — WisprFlow UX; combo strings still give toggle mode
+- [x] Default model `small` → `base` (337ms MLX vs 951ms, slight accuracy dip accepted)
+- [x] README: fixed invalid `language = null` TOML in config example
+
 ### Done in v0.2.0
 - [x] mlx-whisper backend (`stt.py`), `stt_backend` config key, `pip install -e '.[mlx]'`
 - [x] Skip Ollama cleanup for clips under 5 words

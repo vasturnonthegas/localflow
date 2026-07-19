@@ -5,13 +5,15 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    model_size: str = "small"          # whisper model size
+    model_size: str = "base"           # whisper model size
     stt_backend: str = "auto"          # auto | mlx | faster-whisper
     language: str | None = None        # None = autodetect
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2:3b"
     cleanup_enabled: bool = True
-    hotkey: str = "<cmd>+<shift>+<space>"   # pynput GlobalHotKeys format
+    # Bare pynput Key name ('alt_l' = left Option) = hold-to-talk;
+    # GlobalHotKeys combo ('<cmd>+<shift>+<space>') = toggle.
+    hotkey: str = "alt_l"
     sample_rate: int = 16000
     server_host: str = "0.0.0.0"
     server_port: int = 8756

@@ -5,7 +5,7 @@ Local push-to-talk dictation for macOS. Fully offline STT using Whisper (faster-
 ## What it is
 
 An open-source WisprFlow-style dictation app:
-- **Global hotkey** (cmd+shift+space by default) toggles recording
+- **Hold left Option** (default) to record — release to transcribe and paste; combo hotkeys toggle instead
 - **Offline transcription** via faster-whisper (no cloud calls)
 - **Optional cleanup** with Ollama (fix punctuation, casing, remove filler words)
 - **Instant paste** into the frontmost app
@@ -39,8 +39,7 @@ python3 -m venv .venv
 localflow
 ```
 
-- Press **cmd+shift+space** to toggle recording (customize in `~/.localflow.toml`)
-- Speak clearly; release to transcribe
+- **Hold left Option**, speak, release — transcript pastes. Customize in `~/.localflow.toml`
 - Text pastes into your frontmost app
 - Run from terminal; watch for model download (~1s first run) and transcription timing
 
@@ -55,12 +54,13 @@ Grant on first run:
 Create `~/.localflow.toml`:
 
 ```toml
-model_size = "small"              # whisper model: tiny, base, small, medium, large
-language = null                   # null = autodetect; "en" = English only
+model_size = "base"               # whisper model: tiny, base, small, medium, large-v3
+stt_backend = "auto"              # auto | mlx | faster-whisper
+# language = "en"                 # omit for autodetect
 cleanup_enabled = true
 ollama_url = "http://localhost:11434"
 ollama_model = "llama3.2:3b"
-hotkey = "<cmd>+<shift>+<space>"
+hotkey = "alt_l"                  # bare key name = hold-to-talk; "<cmd>+<shift>+<space>" = toggle
 sample_rate = 16000
 server_host = "0.0.0.0"
 server_port = 8756

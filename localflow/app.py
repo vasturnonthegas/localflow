@@ -7,7 +7,7 @@ import numpy as np
 from localflow.audio import Recorder
 from localflow.cleanup import Cleaner
 from localflow.config import load_config
-from localflow.hotkey import HotkeyListener
+from localflow.hotkey import HoldKeyListener, HotkeyListener, is_hold_key
 from localflow.inject import paste_text
 from localflow.stt import Transcriber
 
@@ -18,7 +18,8 @@ def _print_banner(config) -> None:
     print("=" * 60)
     print("localflow — local push-to-talk dictation")
     print("=" * 60)
-    print(f"  hotkey:       {config.hotkey}")
+    mode = "hold to talk" if is_hold_key(config.hotkey) else "toggle"
+    print(f"  hotkey:       {config.hotkey} ({mode})")
     print(f"  model:        {config.model_size}")
     print(f"  ollama model: {config.ollama_model}")
     print("-" * 60)
@@ -55,21 +56,33 @@ def main() -> None:
     worker_thread = threading.Thread(target=worker, daemon=True)
     worker_thread.start()
 
-    def on_toggle() -> None:
+    def on_start() -> None:
         if not recorder.recording:
             recorder.start()
             print("● recording")
+
+    def on_stop() -> None:
+        if not recorder.recording:
+            return
+        audio = recorder.stop()
+        print("■ transcribing…")
+        duration = len(audio) / config.sample_rate if config.sample_rate else 0
+        if duration < MIN_CLIP_SECONDS:
+            return
+        work_queue.put(audio)
+
+    def on_toggle() -> None:
+        if not recorder.recording:
+            on_start()
         else:
-            audio = recorder.stop()
-            print("■ transcribing…")
-            duration = len(audio) / config.sample_rate if config.sample_rate else 0
-            if duration < MIN_CLIP_SECONDS:
-                return
-            work_queue.put(audio)
+            on_stop()
 
     _print_banner(config)
 
-    listener = HotkeyListener(config.hotkey, on_toggle)
+    if is_hold_key(config.hotkey):
+        listener = HoldKeyListener(config.hotkey, on_start, on_stop)
+    else:
+        listener = HotkeyListener(config.hotkey, on_toggle)
     try:
         listener.run_forever()
     except KeyboardInterrupt:
