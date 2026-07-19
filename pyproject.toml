@@ -24,6 +24,7 @@ mlx = ["mlx-whisper"]
 [project.scripts]
 localflow = "localflow.app:main"
 localflow-server = "localflow.server:main"
+lf = "localflow.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["localflow"]
