@@ -15,6 +15,7 @@ class Config:
     # GlobalHotKeys combo ('<cmd>+<shift>+<space>') = toggle.
     hotkey: str = "alt_l"
     sounds_enabled: bool = True        # audio cue on record start/stop
+    spoken_symbols: bool = True        # dictated "slash"/"dash"/"underscore" -> / - _
     sample_rate: int = 16000
     server_host: str = "0.0.0.0"
     server_port: int = 8756

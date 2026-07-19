@@ -20,6 +20,7 @@ from localflow.meetings import (
     ObsidianWriter,
 )
 from localflow.stt import Transcriber
+from localflow.symbols import apply_spoken_symbols
 from localflow.workprompts import WorkPromptGenerator
 
 app = FastAPI()
@@ -110,6 +111,8 @@ def _transcribe_sync(audio: np.ndarray, clean: bool) -> str:
     text = _get_transcriber().transcribe(audio)
     if clean:
         text = _get_cleaner().clean(text)
+    if _config.spoken_symbols and text:
+        text = apply_spoken_symbols(text)
     return text
 
 

@@ -13,6 +13,7 @@ from localflow.hotkey import HoldKeyListener, HotkeyListener, is_hold_key
 from localflow.inject import paste_text
 from localflow.log import setup_logging
 from localflow.stt import Transcriber
+from localflow.symbols import apply_spoken_symbols
 
 log = logging.getLogger("localflow.app")
 
@@ -115,6 +116,8 @@ def _process_clip(audio: np.ndarray, config, transcriber: Transcriber, cleaner: 
     # Cleanup only pays off on real sentences; short fragments have nothing to fix.
     if config.cleanup_enabled and text and len(text.split()) >= 5:
         text = cleaner.clean(text)
+    if config.spoken_symbols and text:
+        text = apply_spoken_symbols(text)
     elapsed_ms = int((time.monotonic() - start) * 1000)
     log.info("transcribed %d chars in %dms", len(text or ""), elapsed_ms)
     if text:
