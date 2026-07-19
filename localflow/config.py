@@ -24,6 +24,11 @@ class Config:
     meeting_watch: bool = True         # detect mic-in-use and notify
     meeting_chunk_seconds: int = 30    # transcribe in chunks of this length
     meeting_min_busy_seconds: int = 12 # sustained mic use before "meeting detected"
+    # Work-prompt extraction from meeting notes (open-weights model on Fireworks).
+    # Key comes from FIREWORKS_API_KEY env var or fireworks_api_key here.
+    work_prompts: bool = True
+    fireworks_api_key: str = ""
+    fireworks_model: str = "accounts/fireworks/models/kimi-k2p6"
 
 
 def load_config() -> Config:

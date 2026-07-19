@@ -19,6 +19,7 @@ from localflow.meetings import (
     ObsidianWriter,
 )
 from localflow.stt import Transcriber
+from localflow.workprompts import WorkPromptGenerator
 
 app = FastAPI()
 
@@ -38,6 +39,9 @@ _last_saved: dict | None = None
 _summarizer = MeetingSummarizer(_config.ollama_url, _config.ollama_model)
 _writer = ObsidianWriter(
     _config.vault_path, _config.notes_folder, _config.logs_folder
+)
+_prompt_gen = WorkPromptGenerator(
+    model=_config.fireworks_model, api_key=_config.fireworks_api_key
 )
 
 
@@ -197,6 +201,10 @@ async def meeting_stop() -> dict:
         _watcher.resume()
         transcript = " ".join(s.text for s in segments)
         notes_md = _summarizer.summarize(transcript)
+        if _config.work_prompts:
+            prompts_md = _prompt_gen.generate(notes_md)
+            if prompts_md:
+                notes_md += f"\n\n## Suggested Work Prompts\n\n{prompts_md}"
         saved = _writer.write(
             title=_session_meta.get("title", "Meeting"),
             category=_session_meta.get("category", "Other"),
