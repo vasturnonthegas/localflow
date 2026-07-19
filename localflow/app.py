@@ -33,7 +33,12 @@ def main() -> None:
     config = load_config()
 
     print("loading model…")
-    transcriber = Transcriber(model_size=config.model_size, language=config.language)
+    transcriber = Transcriber(
+        model_size=config.model_size,
+        language=config.language,
+        backend=config.stt_backend,
+    )
+    print(f"  stt backend:  {transcriber.backend}")
     recorder = Recorder(sample_rate=config.sample_rate)
     cleaner = Cleaner(config.ollama_url, config.ollama_model)
 
@@ -74,7 +79,8 @@ def main() -> None:
 def _process_clip(audio: np.ndarray, config, transcriber: Transcriber, cleaner: Cleaner) -> None:
     start = time.monotonic()
     text = transcriber.transcribe(audio)
-    if config.cleanup_enabled and text:
+    # Cleanup only pays off on real sentences; short fragments have nothing to fix.
+    if config.cleanup_enabled and text and len(text.split()) >= 5:
         text = cleaner.clean(text)
     elapsed_ms = int((time.monotonic() - start) * 1000)
     if text:

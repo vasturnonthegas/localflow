@@ -3,7 +3,18 @@
 Open-source WisprFlow clone: local push-to-talk dictation on macOS.
 Stack: faster-whisper (STT, int8 CPU) · Ollama llama3.2:3b (cleanup) · pynput hotkey · clipboard paste · FastAPI + Tailscale for phone.
 
-## Status: v0.1.0 — working end-to-end (2026-07-18)
+## Status: v0.2.0 — MLX backend, 3.4x faster STT (2026-07-18)
+
+### Perf (13.8s speech clip, M-series)
+| Backend | Model | Latency |
+|---|---|---|
+| faster-whisper CPU int8 | small | 3202ms |
+| faster-whisper CPU int8 | base | 989ms |
+| **mlx-whisper (GPU)** | **small** | **951ms** |
+| mlx-whisper (GPU) | base | 337ms |
+
+Default: `stt_backend = "auto"` → MLX when installed, faster-whisper fallback.
+Rust rewrite evaluated and rejected: inference is native code either way, Python glue is single-digit ms.
 
 ### Done
 - [x] Core modules: `audio.py` (thread-safe recorder), `stt.py` (faster-whisper), `cleanup.py` (Ollama, silent fallback to raw transcript), `inject.py` (clipboard paste + restore), `hotkey.py` (⌘⇧Space toggle), `app.py` (worker-thread pipeline), `config.py` (`~/.localflow.toml`)
@@ -22,9 +33,11 @@ Stack: faster-whisper (STT, int8 CPU) · Ollama llama3.2:3b (cleanup) · pynput 
 
 ### Deliberate scope cuts
 - No word-by-word streaming partials — push-to-talk UX matches WisprFlow, streaming adds big complexity for little dictation value
-- CPU int8 whisper, not mlx-whisper — swap inside `stt.py` only if `small` feels slow on Apple Silicon
+### Done in v0.2.0
+- [x] mlx-whisper backend (`stt.py`), `stt_backend` config key, `pip install -e '.[mlx]'`
+- [x] Skip Ollama cleanup for clips under 5 words
+- [x] Benchmarked small/base on both backends (table above)
 
 ### Ideas / later
-- [ ] mlx-whisper backend for Apple Silicon speed
 - [ ] Per-app vocabulary hints / custom prompt for cleanup model
 - [ ] History file of past dictations

@@ -18,6 +18,9 @@ dependencies = [
     "python-multipart",
 ]
 
+[project.optional-dependencies]
+mlx = ["mlx-whisper"]
+
 [project.scripts]
 localflow = "localflow.app:main"
 localflow-server = "localflow.server:main"

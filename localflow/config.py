@@ -5,7 +5,8 @@ from pathlib import Path
 
 @dataclass
 class Config:
-    model_size: str = "small"          # faster-whisper model
+    model_size: str = "small"          # whisper model size
+    stt_backend: str = "auto"          # auto | mlx | faster-whisper
     language: str | None = None        # None = autodetect
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2:3b"

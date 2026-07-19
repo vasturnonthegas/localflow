@@ -28,7 +28,9 @@ def _get_transcriber() -> Transcriber:
         with _lock:
             if _transcriber is None:
                 _transcriber = Transcriber(
-                    model_size=_config.model_size, language=_config.language
+                    model_size=_config.model_size,
+                    language=_config.language,
+                    backend=_config.stt_backend,
                 )
     return _transcriber
 
