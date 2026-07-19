@@ -10,10 +10,12 @@ from starlette.concurrency import run_in_threadpool
 
 from localflow.cleanup import Cleaner
 from localflow.config import load_config
+from localflow.log import setup_logging
 from localflow.stt import Transcriber
 
 app = FastAPI()
 
+setup_logging()
 _config = load_config()
 _transcriber: Transcriber | None = None
 _cleaner: Cleaner | None = None

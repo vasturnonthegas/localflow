@@ -1,6 +1,9 @@
+import logging
 from collections.abc import Callable
 
 from pynput import keyboard
+
+log = logging.getLogger("localflow.hotkey")
 
 
 class HotkeyListener:
@@ -30,20 +33,40 @@ class HoldKeyListener:
         self.on_start = on_start
         self.on_stop = on_stop
         self._held = False
+        self._saw_any_event = False
+
+    def _note_event(self) -> None:
+        # First event of any kind proves Input Monitoring permission works;
+        # we log only that fact, never which keys were typed.
+        if not self._saw_any_event:
+            self._saw_any_event = True
+            log.info("first keyboard event received — Input Monitoring OK")
 
     def _press(self, key) -> None:
+        self._note_event()
         if key == self.key and not self._held:
             self._held = True
-            self.on_start()
+            log.debug("hotkey down")
+            try:
+                self.on_start()
+            except Exception:
+                log.exception("on_start failed")
 
     def _release(self, key) -> None:
+        self._note_event()
         if key == self.key and self._held:
             self._held = False
-            self.on_stop()
+            log.debug("hotkey up")
+            try:
+                self.on_stop()
+            except Exception:
+                log.exception("on_stop failed")
 
     def run_forever(self) -> None:
+        log.info("HoldKeyListener starting for key=%s", self.key)
         with keyboard.Listener(on_press=self._press, on_release=self._release) as listener:
             listener.join()
+        log.warning("keyboard listener exited")
 
 
 def is_hold_key(hotkey: str) -> bool:

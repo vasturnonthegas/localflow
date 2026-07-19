@@ -1,7 +1,10 @@
+import logging
 import threading
 
 import numpy as np
 import sounddevice as sd
+
+log = logging.getLogger("localflow.audio")
 
 
 class Recorder:
@@ -20,14 +23,21 @@ class Recorder:
         """Begin capturing mono float32 from default mic via sounddevice.InputStream."""
         with self._lock:
             self._chunks = []
-        self._stream = sd.InputStream(
-            samplerate=self.sample_rate,
-            channels=1,
-            dtype="float32",
-            callback=self._callback,
-        )
-        self._stream.start()
+        try:
+            device = sd.query_devices(kind="input")
+            log.info("opening input stream on device: %s", device.get("name"))
+            self._stream = sd.InputStream(
+                samplerate=self.sample_rate,
+                channels=1,
+                dtype="float32",
+                callback=self._callback,
+            )
+            self._stream.start()
+        except Exception:
+            log.exception("failed to open mic input stream")
+            raise
         self._recording = True
+        log.info("recording started")
 
     def stop(self) -> np.ndarray:
         """Stop capture, return full clip as 1-D float32 np array at sample_rate."""
@@ -42,6 +52,11 @@ class Recorder:
             else:
                 audio = np.array([], dtype=np.float32)
             self._chunks = []
+        log.info(
+            "recording stopped: %.2fs captured, peak amplitude %.4f",
+            len(audio) / self.sample_rate,
+            float(np.abs(audio).max()) if len(audio) else 0.0,
+        )
         return audio.astype(np.float32)
 
     @property

@@ -1,3 +1,4 @@
+import logging
 import queue
 import threading
 import time
@@ -9,7 +10,10 @@ from localflow.cleanup import Cleaner
 from localflow.config import load_config
 from localflow.hotkey import HoldKeyListener, HotkeyListener, is_hold_key
 from localflow.inject import paste_text
+from localflow.log import setup_logging
 from localflow.stt import Transcriber
+
+log = logging.getLogger("localflow.app")
 
 MIN_CLIP_SECONDS = 0.3
 
@@ -31,6 +35,8 @@ def _print_banner(config) -> None:
 
 def main() -> None:
     """Desktop entrypoint (console script `localflow`)."""
+    log_path = setup_logging()
+    log.info("localflow starting")
     config = load_config()
 
     print("loading model…")
@@ -50,7 +56,10 @@ def main() -> None:
             audio = work_queue.get()
             if audio is None:
                 break
-            _process_clip(audio, config, transcriber, cleaner)
+            try:
+                _process_clip(audio, config, transcriber, cleaner)
+            except Exception:
+                log.exception("transcription pipeline failed")
             work_queue.task_done()
 
     worker_thread = threading.Thread(target=worker, daemon=True)
@@ -58,7 +67,11 @@ def main() -> None:
 
     def on_start() -> None:
         if not recorder.recording:
-            recorder.start()
+            try:
+                recorder.start()
+            except Exception as exc:
+                print(f"mic error: {exc}")
+                return
             print("● recording")
 
     def on_stop() -> None:
@@ -68,6 +81,7 @@ def main() -> None:
         print("■ transcribing…")
         duration = len(audio) / config.sample_rate if config.sample_rate else 0
         if duration < MIN_CLIP_SECONDS:
+            log.info("clip too short (%.2fs), dropped", duration)
             return
         work_queue.put(audio)
 
@@ -78,6 +92,7 @@ def main() -> None:
             on_stop()
 
     _print_banner(config)
+    print(f"  log file:     {log_path}")
 
     if is_hold_key(config.hotkey):
         listener = HoldKeyListener(config.hotkey, on_start, on_stop)
@@ -96,6 +111,7 @@ def _process_clip(audio: np.ndarray, config, transcriber: Transcriber, cleaner: 
     if config.cleanup_enabled and text and len(text.split()) >= 5:
         text = cleaner.clean(text)
     elapsed_ms = int((time.monotonic() - start) * 1000)
+    log.info("transcribed %d chars in %dms", len(text or ""), elapsed_ms)
     if text:
         paste_text(text)
         print(f"{text}  ({elapsed_ms}ms)")
