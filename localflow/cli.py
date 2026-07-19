@@ -212,6 +212,13 @@ def ui() -> None:
     subprocess.run(["open", BASE], check=False)
 
 
+@cli.command()
+def menubar() -> None:
+    """Run the macOS menu bar app (mic icon, meeting control)."""
+    from localflow.menubar import main as menubar_main
+    menubar_main()
+
+
 def main() -> None:
     cli()
 
