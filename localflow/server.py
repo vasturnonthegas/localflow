@@ -6,11 +6,18 @@ from pathlib import Path
 import numpy as np
 from fastapi import FastAPI, HTTPException, UploadFile
 from fastapi.responses import FileResponse
+from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
 from localflow.cleanup import Cleaner
 from localflow.config import load_config
 from localflow.log import setup_logging
+from localflow.meetings import (
+    MeetingSession,
+    MeetingSummarizer,
+    MeetingWatcher,
+    ObsidianWriter,
+)
 from localflow.stt import Transcriber
 
 app = FastAPI()
@@ -20,6 +27,24 @@ _config = load_config()
 _transcriber: Transcriber | None = None
 _cleaner: Cleaner | None = None
 _lock = threading.Lock()
+_transcribe_lock = threading.Lock()
+
+_watcher = MeetingWatcher(
+    min_busy_seconds=_config.meeting_min_busy_seconds,
+)
+_session: MeetingSession | None = None
+_session_meta: dict = {}
+_last_saved: dict | None = None
+_summarizer = MeetingSummarizer(_config.ollama_url, _config.ollama_model)
+_writer = ObsidianWriter(
+    _config.vault_path, _config.notes_folder, _config.logs_folder
+)
+
+
+@app.on_event("startup")
+def _start_watcher() -> None:
+    if _config.meeting_watch:
+        _watcher.start()
 
 _STATIC_DIR = Path(__file__).parent / "static"
 
@@ -103,6 +128,99 @@ async def transcribe(file: UploadFile, clean: int = 0) -> dict:
     text = await run_in_threadpool(_transcribe_sync, audio, bool(clean))
     elapsed_ms = int((time.monotonic() - start) * 1000)
     return {"text": text, "ms": elapsed_ms}
+
+
+class MeetingStart(BaseModel):
+    title: str = "Meeting"
+    category: str = ""
+
+
+@app.get("/meeting/status")
+def meeting_status() -> dict:
+    session = _session
+    live = None
+    if session is not None and session.active:
+        live = {
+            "title": _session_meta.get("title", "Meeting"),
+            "category": _session_meta.get("category", "Other"),
+            "seconds": int(session.elapsed_seconds()),
+            "segments": [
+                {"stamp": s.stamp, "text": s.text} for s in session.segments[-8:]
+            ],
+            "segment_count": len(session.segments),
+        }
+    return {
+        "watching": _watcher.error == "" and _config.meeting_watch,
+        "watch_error": _watcher.error,
+        "mic_busy": _watcher.mic_busy,
+        "detected": _watcher.detected,
+        "platform": _watcher.platform,
+        "session": live,
+        "last_saved": _last_saved,
+    }
+
+
+@app.post("/meeting/start")
+def meeting_start(body: MeetingStart) -> dict:
+    global _session, _session_meta, _last_saved
+    if _session is not None and _session.active:
+        raise HTTPException(status_code=409, detail="a meeting session is already running")
+    category = body.category or _watcher.platform or "Other"
+    session = MeetingSession(
+        _get_transcriber(),
+        _transcribe_lock,
+        sample_rate=_config.sample_rate,
+        chunk_seconds=_config.meeting_chunk_seconds,
+    )
+    _watcher.pause()  # we hold the mic now; don't self-detect
+    try:
+        session.start()
+    except Exception as exc:
+        _watcher.resume()
+        raise HTTPException(status_code=500, detail=f"mic open failed: {exc}")
+    _session = session
+    _session_meta = {"title": body.title or "Meeting", "category": category}
+    _last_saved = None
+    return {"ok": True, "category": category}
+
+
+@app.post("/meeting/stop")
+async def meeting_stop() -> dict:
+    global _session, _last_saved
+    session = _session
+    if session is None or not session.active:
+        raise HTTPException(status_code=409, detail="no meeting session running")
+
+    def _finish() -> dict:
+        global _last_saved
+        segments = session.stop()
+        _watcher.resume()
+        transcript = " ".join(s.text for s in segments)
+        notes_md = _summarizer.summarize(transcript)
+        saved = _writer.write(
+            title=_session_meta.get("title", "Meeting"),
+            category=_session_meta.get("category", "Other"),
+            started_at=session.started_at,
+            duration_seconds=session.elapsed_seconds(),
+            notes_md=notes_md,
+            segments=segments,
+        )
+        _last_saved = {
+            "notes_path": str(saved.notes_path),
+            "log_path": str(saved.log_path),
+            "segments": len(segments),
+        }
+        return _last_saved
+
+    result = await run_in_threadpool(_finish)
+    _session = None
+    return result
+
+
+@app.post("/meeting/dismiss")
+def meeting_dismiss() -> dict:
+    _watcher.dismiss()
+    return {"ok": True}
 
 
 def main() -> None:

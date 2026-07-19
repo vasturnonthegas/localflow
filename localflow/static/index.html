@@ -116,6 +116,58 @@
     text-align: center;
     max-width: 480px;
   }
+  #meetingPanel {
+    width: 100%; max-width: 480px;
+    background: #1c1c1c;
+    border: 1px solid #2a2a2a;
+    border-radius: 10px;
+    padding: 14px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  #meetingPanel h2 {
+    margin: 0; font-size: 0.9rem; font-weight: 600; color: #bbb;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  #meetingWatchState { font-size: 0.72rem; font-weight: 400; color: #666; }
+  #meetingBanner {
+    display: none;
+    background: #2b2416;
+    border: 1px solid #6b5b2b;
+    color: #e8d48a;
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+  .meetingRow { display: flex; gap: 8px; }
+  .meetingRow input, .meetingRow select {
+    background: #121212; color: #e8e8e8;
+    border: 1px solid #333; border-radius: 6px;
+    padding: 8px 10px; font-size: 0.9rem;
+  }
+  .meetingRow input { flex: 1; min-width: 0; }
+  #meetingBtn {
+    background: #2f5a41; color: #fff; border: none; border-radius: 8px;
+    padding: 10px; font-size: 0.95rem; font-weight: 600; cursor: pointer;
+  }
+  #meetingBtn.live { background: #b02f2f; animation: pulse 1.4s infinite; }
+  #meetingBtn:disabled { background: #444; }
+  #meetingLive {
+    display: none;
+    font-size: 0.85rem; line-height: 1.45;
+    max-height: 220px; overflow-y: auto;
+    background: #121212; border: 1px solid #2a2a2a;
+    border-radius: 8px; padding: 10px;
+    white-space: pre-wrap;
+  }
+  #meetingSaved {
+    display: none;
+    color: #7ee0a8; font-size: 0.8rem; word-break: break-all;
+  }
+  .dismissBtn {
+    background: none; border: none; color: #a89448;
+    font-size: 0.8rem; cursor: pointer; text-decoration: underline;
+    padding: 0; margin-left: 8px;
+  }
 </style>
 </head>
 <body>
@@ -130,6 +182,31 @@
 
   <div id="status"></div>
   <div id="error"></div>
+
+  <div id="meetingPanel">
+    <h2>Meeting transcription <span id="meetingWatchState"></span></h2>
+    <div id="meetingBanner">
+      Meeting detected<span id="meetingPlatform"></span> — start transcribing?
+      <button class="dismissBtn" id="meetingDismiss">dismiss</button>
+    </div>
+    <div class="meetingRow">
+      <input id="meetingTitle" placeholder="Meeting title" />
+      <select id="meetingCategory">
+        <option value="">auto</option>
+        <option>Zoom</option>
+        <option>Google Meet</option>
+        <option>Teams</option>
+        <option>FaceTime</option>
+        <option>Webex</option>
+        <option>Slack</option>
+        <option>Discord</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <button id="meetingBtn">Start meeting transcription</button>
+    <div id="meetingLive"></div>
+    <div id="meetingSaved"></div>
+  </div>
 
   <div id="list"></div>
 
@@ -306,6 +383,104 @@
       stopRecording();
     }
   });
+
+  // ---------------- meeting transcription ----------------
+  const meetingBtn = document.getElementById('meetingBtn');
+  const meetingBanner = document.getElementById('meetingBanner');
+  const meetingPlatform = document.getElementById('meetingPlatform');
+  const meetingDismiss = document.getElementById('meetingDismiss');
+  const meetingTitle = document.getElementById('meetingTitle');
+  const meetingCategory = document.getElementById('meetingCategory');
+  const meetingLive = document.getElementById('meetingLive');
+  const meetingSaved = document.getElementById('meetingSaved');
+  const meetingWatchState = document.getElementById('meetingWatchState');
+
+  let meetingActive = false;
+  let meetingBusy = false;
+
+  function fmtSeconds(s) {
+    const m = Math.floor(s / 60);
+    return m + 'm' + String(s % 60).padStart(2, '0') + 's';
+  }
+
+  async function pollMeeting() {
+    try {
+      const resp = await fetch('/meeting/status');
+      if (!resp.ok) return;
+      const st = await resp.json();
+      meetingWatchState.textContent = st.watching
+        ? (st.mic_busy ? 'mic in use' : 'watching')
+        : (st.watch_error ? 'watcher off' : '');
+      const showBanner = st.detected && !st.session;
+      meetingBanner.style.display = showBanner ? 'block' : 'none';
+      if (showBanner) {
+        meetingPlatform.textContent = st.platform ? ' (' + st.platform + ')' : '';
+      }
+      meetingActive = !!st.session;
+      if (st.session) {
+        meetingBtn.textContent =
+          'Stop & save notes — ' + fmtSeconds(st.session.seconds) +
+          ' · ' + st.session.segment_count + ' segments';
+        meetingBtn.classList.add('live');
+        meetingLive.style.display = 'block';
+        meetingLive.textContent = st.session.segments.length
+          ? st.session.segments.map(s => '[' + s.stamp + '] ' + s.text).join('\n\n')
+          : '(listening — first transcript segment lands after ~30s)';
+        meetingLive.scrollTop = meetingLive.scrollHeight;
+      } else if (!meetingBusy) {
+        meetingBtn.textContent = 'Start meeting transcription';
+        meetingBtn.classList.remove('live');
+      }
+      if (st.last_saved && !st.session) {
+        meetingSaved.style.display = 'block';
+        meetingSaved.textContent =
+          'Saved: ' + st.last_saved.notes_path + ' (+ transcript log)';
+      }
+    } catch (_) { /* server briefly away; next poll recovers */ }
+  }
+
+  meetingDismiss.addEventListener('click', async () => {
+    await fetch('/meeting/dismiss', { method: 'POST' });
+    meetingBanner.style.display = 'none';
+  });
+
+  meetingBtn.addEventListener('click', async () => {
+    if (meetingBusy) return;
+    meetingBusy = true;
+    meetingBtn.disabled = true;
+    try {
+      if (!meetingActive) {
+        meetingSaved.style.display = 'none';
+        const resp = await fetch('/meeting/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            title: meetingTitle.value || 'Meeting',
+            category: meetingCategory.value,
+          }),
+        });
+        if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
+      } else {
+        meetingBtn.textContent = 'Summarizing & saving…';
+        const resp = await fetch('/meeting/stop', { method: 'POST' });
+        if (!resp.ok) throw new Error((await resp.json()).detail || resp.statusText);
+        const saved = await resp.json();
+        meetingSaved.style.display = 'block';
+        meetingSaved.textContent = 'Saved: ' + saved.notes_path + ' (+ transcript log)';
+        meetingLive.style.display = 'none';
+      }
+      clearError();
+    } catch (err) {
+      showError('Meeting: ' + err.message);
+    } finally {
+      meetingBusy = false;
+      meetingBtn.disabled = false;
+      pollMeeting();
+    }
+  });
+
+  setInterval(pollMeeting, 3000);
+  pollMeeting();
 </script>
 </body>
 </html>

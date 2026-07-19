@@ -17,6 +17,13 @@ class Config:
     sample_rate: int = 16000
     server_host: str = "0.0.0.0"
     server_port: int = 8756
+    # Meeting transcription -> Obsidian
+    vault_path: str = "~/Documents/ObsidianVault"
+    notes_folder: str = "Transcription Notes"
+    logs_folder: str = "Transcription Logs"
+    meeting_watch: bool = True         # detect mic-in-use and notify
+    meeting_chunk_seconds: int = 30    # transcribe in chunks of this length
+    meeting_min_busy_seconds: int = 12 # sustained mic use before "meeting detected"
 
 
 def load_config() -> Config:
