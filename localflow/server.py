@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 
+from localflow import sounds
 from localflow.cleanup import Cleaner
 from localflow.config import load_config
 from localflow.log import setup_logging
@@ -185,6 +186,8 @@ def meeting_start(body: MeetingStart) -> dict:
     _session = session
     _session_meta = {"title": body.title or "Meeting", "category": category}
     _last_saved = None
+    if _config.sounds_enabled:
+        sounds.play("start")
     return {"ok": True, "category": category}
 
 
@@ -198,6 +201,8 @@ async def meeting_stop() -> dict:
     def _finish() -> dict:
         global _last_saved
         segments = session.stop()
+        if _config.sounds_enabled:
+            sounds.play("stop")
         _watcher.resume()
         transcript = " ".join(s.text for s in segments)
         notes_md = _summarizer.summarize(transcript)

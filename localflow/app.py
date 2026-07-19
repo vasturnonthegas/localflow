@@ -5,6 +5,7 @@ import time
 
 import numpy as np
 
+from localflow import sounds
 from localflow.audio import Recorder
 from localflow.cleanup import Cleaner
 from localflow.config import load_config
@@ -72,12 +73,16 @@ def main() -> None:
             except Exception as exc:
                 print(f"mic error: {exc}")
                 return
+            if config.sounds_enabled:
+                sounds.play("start")
             print("● recording")
 
     def on_stop() -> None:
         if not recorder.recording:
             return
         audio = recorder.stop()
+        if config.sounds_enabled:
+            sounds.play("stop")
         print("■ transcribing…")
         duration = len(audio) / config.sample_rate if config.sample_rate else 0
         if duration < MIN_CLIP_SECONDS:

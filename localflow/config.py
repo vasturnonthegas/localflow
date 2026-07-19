@@ -14,6 +14,7 @@ class Config:
     # Bare pynput Key name ('alt_l' = left Option) = hold-to-talk;
     # GlobalHotKeys combo ('<cmd>+<shift>+<space>') = toggle.
     hotkey: str = "alt_l"
+    sounds_enabled: bool = True        # audio cue on record start/stop
     sample_rate: int = 16000
     server_host: str = "0.0.0.0"
     server_port: int = 8756
