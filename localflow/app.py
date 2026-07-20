@@ -5,7 +5,7 @@ import time
 
 import numpy as np
 
-from localflow import sounds
+from localflow import sounds, state
 from localflow.audio import Recorder
 from localflow.cleanup import Cleaner
 from localflow.config import load_config
@@ -62,6 +62,8 @@ def main() -> None:
                 _process_clip(audio, config, transcriber, cleaner)
             except Exception:
                 log.exception("transcription pipeline failed")
+            finally:
+                state.set_status("idle")
             work_queue.task_done()
 
     worker_thread = threading.Thread(target=worker, daemon=True)
@@ -76,6 +78,7 @@ def main() -> None:
                 return
             if config.sounds_enabled:
                 sounds.play("start")
+            state.set_status("recording")
             print("● recording")
 
     def on_stop() -> None:
@@ -88,7 +91,9 @@ def main() -> None:
         duration = len(audio) / config.sample_rate if config.sample_rate else 0
         if duration < MIN_CLIP_SECONDS:
             log.info("clip too short (%.2fs), dropped", duration)
+            state.set_status("idle")
             return
+        state.set_status("transcribing")
         work_queue.put(audio)
 
     def on_toggle() -> None:
@@ -97,6 +102,7 @@ def main() -> None:
         else:
             on_stop()
 
+    state.set_status("idle")
     _print_banner(config)
     print(f"  log file:     {log_path}")
 
@@ -122,6 +128,7 @@ def _process_clip(audio: np.ndarray, config, transcriber: Transcriber, cleaner: 
     log.info("transcribed %d chars in %dms", len(text or ""), elapsed_ms)
     if text:
         paste_text(text)
+        state.add_transcript(text, elapsed_ms)
         print(f"{text}  ({elapsed_ms}ms)")
 
 

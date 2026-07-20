@@ -43,6 +43,26 @@ localflow
 - Text pastes into your frontmost app
 - Run from terminal; watch for model download (~1s first run) and transcription timing
 
+### Menu bar (hub)
+
+```bash
+lf menubar
+```
+
+Runs a status-bar app that is the control center for both dictation and
+meetings — no terminal needed:
+
+- **Live status icon** — 🎙 idle, 🔴 recording, ⏳ transcribing, 🎙❗ meeting
+  detected, 🎙⚫ nothing running. The dictation app publishes its state to
+  `~/.localflow/dictation.json`, which the menu bar reads (so this works even
+  when the server is off).
+- **Recent dictations** submenu — click any of the last 10 transcripts to
+  re-copy it to the clipboard.
+- **Start/Stop dictation** and **Start localflow server** — launch either
+  component directly from the menu.
+- Meeting detection, live session control, and links to the web UI / notes
+  folder.
+
 ### macOS permissions
 
 Grant on first run:
