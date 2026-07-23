@@ -73,7 +73,12 @@ def _get_cleaner() -> Cleaner:
     if _cleaner is None:
         with _lock:
             if _cleaner is None:
-                _cleaner = Cleaner(url=_config.ollama_url, model=_config.ollama_model)
+                _cleaner = Cleaner(
+                    url=_config.ollama_url,
+                    model=_config.ollama_model,
+                    timeout=_config.cleanup_timeout,
+                    num_ctx=_config.cleanup_num_ctx,
+                )
     return _cleaner
 
 

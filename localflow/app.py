@@ -49,7 +49,12 @@ def main() -> None:
     )
     print(f"  stt backend:  {transcriber.backend}")
     recorder = Recorder(sample_rate=config.sample_rate)
-    cleaner = Cleaner(config.ollama_url, config.ollama_model)
+    cleaner = Cleaner(
+        config.ollama_url,
+        config.ollama_model,
+        timeout=config.cleanup_timeout,
+        num_ctx=config.cleanup_num_ctx,
+    )
 
     work_queue: "queue.Queue[np.ndarray]" = queue.Queue()
 

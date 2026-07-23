@@ -11,6 +11,8 @@ class Config:
     ollama_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2:3b"
     cleanup_enabled: bool = True
+    cleanup_timeout: int = 120         # seconds; long dictations need more time
+    cleanup_num_ctx: int = 8192        # Ollama context window for cleanup
     # Bare pynput Key name ('alt_l' = left Option) = hold-to-talk;
     # GlobalHotKeys combo ('<cmd>+<shift>+<space>') = toggle.
     hotkey: str = "alt_l"

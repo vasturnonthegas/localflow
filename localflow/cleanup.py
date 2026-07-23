@@ -9,9 +9,17 @@ _SYSTEM_PROMPT = (
 
 
 class Cleaner:
-    def __init__(self, url: str, model: str):
+    def __init__(
+        self,
+        url: str,
+        model: str,
+        timeout: int = 120,
+        num_ctx: int = 8192,
+    ):
         self.url = url
         self.model = model
+        self.timeout = timeout
+        self.num_ctx = num_ctx
 
     def clean(self, text: str) -> str:
         try:
@@ -22,8 +30,11 @@ class Cleaner:
                     "model": self.model,
                     "prompt": prompt,
                     "stream": False,
+                    # Long dictations need a big context and no output cap,
+                    # else Ollama truncates the cleaned text.
+                    "options": {"num_ctx": self.num_ctx, "num_predict": -1},
                 },
-                timeout=15,
+                timeout=self.timeout,
             )
             resp.raise_for_status()
             data = resp.json()
